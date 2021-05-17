@@ -1,15 +1,16 @@
 from datetime import datetime, timedelta
 from typing import Optional
-from enum import Enum
 from random import randint
-
+# Fastapi
 from fastapi import Depends, FastAPI, HTTPException, status, Form
 from fastapi.param_functions import Body
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+
+# jwt / hash
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel
-from fastapi.responses import JSONResponse
 
 import os
 from dotenv import load_dotenv
@@ -21,35 +22,18 @@ from database import (
     create_new_user,
     register_new_user
 )
+
+# Import model
 from model.user import (
-    ResponseModel
+    ResponseModel,
+    User,
+    UserInDB,
+    UserRole
 )
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-
-class TokenData(BaseModel):
-    identity_id: Optional[str] = None
-
-
-class User(BaseModel):
-    identity_id: str
-    birth_date: str
-    full_name: str
-    disabled: bool = False
-    evaluate_datetime: Optional[datetime] = None
-    create_datetime: Optional[datetime] = None
-
-
-class UserInDB(User):
-    hashed_password: str
-
-
-class UserRole(str, Enum):
-    boss = "boss"
-    employee = "employee"
+from model.auth import (
+    Token,
+    TokenData
+)
 
 
 load_dotenv()
@@ -64,6 +48,20 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 app = FastAPI()
+
+origins = [
+    "http://localhost",
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 def random_with_N_digits(n):
     range_start = 10**(n-1)
@@ -140,6 +138,26 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
+@app.post("/generate/new/user", response_description="Admin generate user")
+async def generate_user(User = Depends(get_current_active_user), admin_password: str = Form(...), user_role: UserRole = Form(...)):
+    if await is_admin(plain_password= admin_password):
+        if user_role == UserRole.boss:
+            identity_id = "{}{}".format("B",random_with_N_digits(13))
+            respond = await create_new_user(identity_id)
+        else:
+            identity_id = "{}{}".format("E",random_with_N_digits(13))
+            respond = await create_new_user(identity_id)
+    return {"identity_id": respond}
+
+
+@app.post("/register", response_description="Registered user")
+async def register(identity_id: str = Form(..., min_length=14, max_length=14), birth_date: str = Form(...), full_name: str = Form(...), password: str = Form(...)):
+    password = get_password_hash(password)
+    result = await register_new_user(full_name, identity_id,password, birth_date)
+    if result is not None:
+        return {"Success": "Created user {}".format(identity_id)}
+    return JSONResponse(status_code=409, content={"message": "Item not found or already exist"})
+
 
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -173,23 +191,5 @@ async def get_all_users(User = Depends(get_current_active_user), admin_password:
         return ResponseModel(users, "Users data retrieved successfully")
     return ResponseModel(users, "Empty list returned")
 
-@app.post("/generate/new/user", response_description="Admin generate user")
-async def generate_user(User = Depends(get_current_active_user), admin_password: str = Form(...), user_role: UserRole = Form(...)):
-    if await is_admin(plain_password= admin_password):
-        if user_role == UserRole.boss:
-            identity_id = "{}{}".format("B",random_with_N_digits(13))
-            respond = await create_new_user(identity_id)
-        else:
-            identity_id = "{}{}".format("E",random_with_N_digits(13))
-            respond = await create_new_user(identity_id)
-    return {"identity_id": respond}
 
-
-@app.post("/register", response_description="Registered user")
-async def register(identity_id: str = Form(..., min_length=14, max_length=14), birth_date: str = Form(...), full_name: str = Form(...), password: str = Form(...)):
-    password = get_password_hash(password)
-    result = await register_new_user(full_name, identity_id,password, birth_date)
-    if result is not None:
-        return {"Success": "Created user {}".format(identity_id)}
-    return JSONResponse(status_code=409, content={"message": "Item not found or already exist"})
 
