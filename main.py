@@ -20,7 +20,8 @@ from database import (
     retrieve_users,
     get_admin_hashed_password,
     create_new_user,
-    register_new_user
+    register_new_user,
+    evaluate_list
 )
 
 # Import model
@@ -182,7 +183,7 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 
-@app.post("/user/all", response_description="Users retrieved")
+@app.post("/users/all", response_description="Users retrieved")
 async def get_all_users(User = Depends(get_current_active_user), admin_password: str = Form(...)):
     users = []
     if await is_admin(plain_password= admin_password):
@@ -192,4 +193,8 @@ async def get_all_users(User = Depends(get_current_active_user), admin_password:
     return ResponseModel(users, "Empty list returned")
 
 
+@app.get("/evaluate/list", response_description="Evaluation list retrieved")
+async def get_evaluate_list(current_user: User = Depends(get_current_active_user)):
+    result = await evaluate_list(current_user.identity_id)
+    return JSONResponse(result)
 

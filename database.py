@@ -37,6 +37,14 @@ def evaluate_helper(identity_id):
          "datetime": datetime.utcnow()+ timedelta(hours=7)
     }
 
+def evaluate_detail(name, score):
+    return{
+        "name": name,
+        "position": "Employee",
+        "score": score
+    } 
+
+
 # Retrieve all students present in the database
 async def retrieve_users():
     users = []
@@ -80,3 +88,17 @@ async def register_new_user(full_name, identity_id ,password, birth_date):
         result = await users_collection.update_one({"_id": is_user_exits["_id"]},{"$set": new_user})
         await evaluate_collection.insert_one(evaluate_helper(identity_id))
         return result
+
+async def evaluate_list(identity_id):
+    evaluate_list_result = []
+    is_user_exits = await users_collection.find_one({ identity_id : { '$exists' : True }} )
+    if is_user_exits:
+        object_id = is_user_exits["_id"]
+        result = evaluate_collection.find({"_id":{"$ne":object_id} })
+        async for user in result:
+            user_identity_id = user['identity_id']
+            user_data = await users_collection.find_one({user_identity_id: { '$exists' : True }})
+            full_name = user_data[user_identity_id]['full_name']
+            data = evaluate_detail(full_name,user['score'])
+            evaluate_list_result.append(data)
+        return evaluate_list_result
