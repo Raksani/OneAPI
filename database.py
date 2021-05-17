@@ -133,3 +133,27 @@ async def evaluate_list(identity_id):
                 data = evaluate_detail(full_name)
                 evaluate_list_result.append(data)
         return evaluate_list_result
+
+async def calculate_evaluate_score(idenntity_id, evaluate_list):
+    user_data = await users_collection.find_one({idenntity_id: { '$exists' : True }})
+    evaluater_obj_id = user_data['_id']
+    for evaluated_user in evaluate_list:
+        evaluated_id = evaluated_user['identity_id']
+        score =  evaluated_user['score']
+        evaluated_data = await evaluate_collection.find_one({"identity_id" : evaluated_id}, {"score": 1})
+        current_score = evaluated_data['score']
+        if current_score == 0:
+            await evaluate_collection.update_one(
+                {"identity_id" : evaluated_id}, 
+                {"$set": {"score": score}})
+        else:
+            calculated_score = (score + current_score)/2
+            await evaluate_collection.update_one(
+                {"identity_id" : evaluated_id}, 
+                {"$set": {"score": calculated_score}})
+    update_result = await users_collection.update_one(
+                {"_id" : evaluater_obj_id}, 
+                {"$set": {"evaluate_datetime": datetime.utcnow()+ timedelta(hours=7)}})
+    if update_result:
+        return True
+    return False

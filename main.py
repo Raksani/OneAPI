@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from random import randint
 # Fastapi
-from fastapi import Depends, FastAPI, HTTPException, status, Form
+from fastapi import Depends, Request , FastAPI, HTTPException, status, Form
 from fastapi.param_functions import Body
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
@@ -22,7 +22,8 @@ from database import (
     create_new_user,
     register_new_user,
     evaluate_score_list,
-    evaluate_list
+    evaluate_list,
+    calculate_evaluate_score
 )
 
 # Import model
@@ -36,6 +37,8 @@ from model.auth import (
     Token,
     TokenData
 )
+
+from model.evaluate import Evaluate
 
 
 load_dotenv()
@@ -203,3 +206,19 @@ async def get_evaluate_score_list(current_user: User = Depends(get_current_activ
 async def get_evaluate_list(current_user: User = Depends(get_current_active_user)):
     result = await evaluate_list(current_user.identity_id)
     return JSONResponse(result)
+
+@app.post("/send/evaluate/score", response_description="Submited evaluate score")
+async def submit_evaluate_score(current_user: User = Depends(get_current_active_user), payload: Evaluate = Body(...)):
+    evaluate_list = []
+    try:
+        for payload_list in payload:
+            evaluate_list = payload_list[1]
+        if len(evaluate_list) != 0:
+            result = await calculate_evaluate_score(current_user.identity_id, evaluate_list)
+            if result:
+                return JSONResponse(status_code=200, content={"message": "Success Evaluated!"})
+        else:
+            return JSONResponse(status_code=422, content={"message": "List is empty"})
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"message": e})
+

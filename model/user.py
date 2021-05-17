@@ -1,6 +1,6 @@
 from typing import Optional
-from datetime import datetime, timedelta
-from pydantic import BaseModel, EmailStr, Field
+from datetime import datetime
+from pydantic import BaseModel
 from enum import Enum
 
 def ResponseModel(data, message):
