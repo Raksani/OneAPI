@@ -21,6 +21,7 @@ from database import (
     get_admin_hashed_password,
     create_new_user,
     register_new_user,
+    evaluate_score_list,
     evaluate_list
 )
 
@@ -193,8 +194,12 @@ async def get_all_users(User = Depends(get_current_active_user), admin_password:
     return ResponseModel(users, "Empty list returned")
 
 
+@app.get("/evaluate/score/list", response_description="Evaluation list retrieved")
+async def get_evaluate_score_list(current_user: User = Depends(get_current_active_user)):
+    result = await evaluate_score_list(current_user.identity_id)
+    return JSONResponse(result)
+
 @app.get("/evaluate/list", response_description="Evaluation list retrieved")
 async def get_evaluate_list(current_user: User = Depends(get_current_active_user)):
     result = await evaluate_list(current_user.identity_id)
     return JSONResponse(result)
-

@@ -37,11 +37,16 @@ def evaluate_helper(identity_id):
          "datetime": datetime.utcnow()+ timedelta(hours=7)
     }
 
-def evaluate_detail(name, score):
+def evaluate_score_detail(name, score):
     return{
         "name": name,
         "position": "Employee",
         "score": score
+    } 
+
+def evaluate_detail(name):
+    return{
+        "name": name
     } 
 
 
@@ -90,7 +95,7 @@ async def register_new_user(full_name, identity_id ,password, birth_date):
             await evaluate_collection.insert_one(evaluate_helper(identity_id))
         return result
 
-async def evaluate_list(identity_id):
+async def evaluate_score_list(identity_id):
     evaluate_list_result = []
     is_user_exits = await users_collection.find_one({ identity_id : { '$exists' : True }})
     if is_user_exits:
@@ -98,7 +103,7 @@ async def evaluate_list(identity_id):
             result = await evaluate_collection.find_one({"identity_id":identity_id})
             user_data = await users_collection.find_one({identity_id: { '$exists' : True }})
             full_name = user_data[identity_id]['full_name']
-            data = evaluate_detail(full_name,result['score'])
+            data = evaluate_score_detail(full_name,result['score'])
             evaluate_list_result.append(data)
             return evaluate_list_result
         else:
@@ -109,6 +114,22 @@ async def evaluate_list(identity_id):
                 if str(user_identity_id).startswith("E"):
                     user_data = await users_collection.find_one({user_identity_id: { '$exists' : True }})
                     full_name = user_data[user_identity_id]['full_name']
-                    data = evaluate_detail(full_name,user['score'])
+                    data = evaluate_score_detail(full_name,user['score'])
                     evaluate_list_result.append(data)
             return evaluate_list_result
+
+
+async def evaluate_list(identity_id):
+    evaluate_list_result = []
+    is_user_exits = await users_collection.find_one({ identity_id : { '$exists' : True }})
+    if is_user_exits:
+        object_id = is_user_exits["_id"]
+        result = evaluate_collection.find({"_id":{"$ne":object_id} })
+        async for user in result:
+            user_identity_id = user['identity_id']
+            if str(user_identity_id).startswith("E"):
+                user_data = await users_collection.find_one({user_identity_id: { '$exists' : True }})
+                full_name = user_data[user_identity_id]['full_name']
+                data = evaluate_detail(full_name)
+                evaluate_list_result.append(data)
+        return evaluate_list_result
