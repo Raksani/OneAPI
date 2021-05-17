@@ -44,8 +44,9 @@ def evaluate_score_detail(name, score):
         "score": score
     } 
 
-def evaluate_detail(name):
+def evaluate_detail(identity_id,name):
     return{
+        "identity_id": identity_id,
         "name": name
     } 
 
@@ -130,7 +131,7 @@ async def evaluate_list(identity_id):
             if str(user_identity_id).startswith("E"):
                 user_data = await users_collection.find_one({user_identity_id: { '$exists' : True }})
                 full_name = user_data[user_identity_id]['full_name']
-                data = evaluate_detail(full_name)
+                data = evaluate_detail(user_identity_id,full_name)
                 evaluate_list_result.append(data)
         return evaluate_list_result
 
